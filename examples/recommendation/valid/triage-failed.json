@@ -1,0 +1,21 @@
+{
+  "kind": "triage",
+  "status": "failed",
+  "failure_reason": "output_invalid",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "event": {
+    "source": "/grafana/lab",
+    "id": "a1b2c3d4e5f60718:20261114T142000Z:firing"
+  },
+  "versions": {
+    "schema": "0.1.0",
+    "prompt": "triage.v1",
+    "model": "triage-default"
+  },
+  "hypotheses": [],
+  "not_enough_evidence": false,
+  "suggested_action": {
+    "type": "escalate",
+    "text": "Saída do modelo fora do schema; seguir o runbook manual"
+  }
+}

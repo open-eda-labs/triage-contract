@@ -1,0 +1,48 @@
+{
+  "kind": "triage",
+  "status": "recommended",
+  "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+  "event": {
+    "source": "/grafana/lab",
+    "id": "a1b2c3d4e5f60718:20261114T142000Z:firing"
+  },
+  "versions": {
+    "schema": "0.1.0",
+    "prompt": "triage.v1",
+    "model": "triage-default"
+  },
+  "hypotheses": [
+    {
+      "cause": "Pool de conexões do banco esgotado após aumento de tráfego no demo-service",
+      "confidence": "high",
+      "evidence": [
+        {
+          "collector": "grafana",
+          "query_id": "db-pool-active-vs-max",
+          "value": "ativas 50 de 50 desde 14:18"
+        },
+        {
+          "collector": "grafana",
+          "query_id": "http-rps-5m",
+          "value": "tráfego 3x acima da média de 7 dias"
+        }
+      ]
+    },
+    {
+      "cause": "Pausas longas de GC na JVM",
+      "confidence": "low",
+      "evidence": [
+        {
+          "collector": "grafana",
+          "query_id": "jvm-gc-pause-p99",
+          "value": "p99 de GC em 180 ms, estável"
+        }
+      ]
+    }
+  ],
+  "not_enough_evidence": false,
+  "suggested_action": {
+    "type": "scale_resource",
+    "text": "linha um\n# título"
+  }
+}

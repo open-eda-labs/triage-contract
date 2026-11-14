@@ -1,0 +1,42 @@
+{
+  "kind": "vuln_fix",
+  "status": "pr_opened",
+  "trace_id": "9a8b7c6d5e4f30211203f4e5d6c7b8a9",
+  "event": {
+    "source": "/osv-scanner/lab",
+    "id": "CVE-2021-44228:open-eda-labs/demo-service:org.apache.logging.log4j:log4j-core"
+  },
+  "versions": {
+    "schema": "0.1.0",
+    "prompt": "vuln-fix-maven.v1",
+    "model": "code-default"
+  },
+  "hypotheses": [],
+  "not_enough_evidence": false,
+  "suggested_action": {
+    "type": "review_pr",
+    "text": "Bump de log4j-core para 2.15.0 com ajuste de API; revisar o diff e o CI"
+  },
+  "fix": {
+    "advisory_id": "CVE-2021-44228",
+    "package": "org.apache.logging.log4j:log4j-core",
+    "from_version": "2.14.1",
+    "to_version": "2.15.0",
+    "level": "N2",
+    "patch_sha256": "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5",
+    "ci_status": "pending",
+    "rescan": "clean",
+    "evidence": [
+      {
+        "collector": "osv-scanner",
+        "query_id": "rescan",
+        "value": "CVE-2021-44228 ausente após o patch"
+      },
+      {
+        "collector": "maven",
+        "query_id": "build-test",
+        "value": "build e testes locais verdes"
+      }
+    ]
+  }
+}
