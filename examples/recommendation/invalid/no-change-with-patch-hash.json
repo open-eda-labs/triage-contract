@@ -1,0 +1,34 @@
+{
+  "kind": "vuln_fix",
+  "status": "no_change",
+  "trace_id": "0af7651916cd43dd8448eb211c80319c",
+  "event": {
+    "source": "/osv-scanner/lab",
+    "id": "CVE-2022-42889:open-eda-labs/demo-service:org.apache.commons:commons-text"
+  },
+  "versions": {
+    "schema": "0.1.0"
+  },
+  "hypotheses": [],
+  "not_enough_evidence": false,
+  "suggested_action": {
+    "type": "no_action",
+    "text": "Dependência já está na versão corrigida na árvore efetiva"
+  },
+  "fix": {
+    "advisory_id": "CVE-2022-42889",
+    "package": "org.apache.commons:commons-text",
+    "from_version": "1.10.0",
+    "level": "N1",
+    "ci_status": "not_run",
+    "rescan": "clean",
+    "evidence": [
+      {
+        "collector": "osv-scanner",
+        "query_id": "dependency-tree",
+        "value": "commons-text 1.10.0 resolvido"
+      }
+    ],
+    "patch_sha256": "5994471abb01112afcc18159f6cc74b4f511b99806da59b3caf5a9c173cacfc5"
+  }
+}

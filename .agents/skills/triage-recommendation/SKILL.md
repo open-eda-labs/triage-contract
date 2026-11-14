@@ -25,7 +25,7 @@ description: Produz um recommendation.json válido (kind triage) a partir de um 
 
 ## Regras de texto
 
-Uma linha, sem URL, sem `www.`, sem `[texto](alvo)`, sem `![img](alvo)`, sem `<` ou `>`. Links são montados depois a partir de `collector` + `query_id`.
+Uma linha, sem URL, sem `//`, sem `www.`, sem `tel:`, sem domínio com caminho (`exemplo.com/x`), sem `[texto](alvo)`, sem `![img](alvo)`, sem `<` ou `>`. Links são montados depois a partir de `collector` + `query_id`.
 
 ## Verificação
 

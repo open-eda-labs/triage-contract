@@ -11,6 +11,7 @@ permissions:
 jobs:
   lint:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       # Pendência: pinar por SHA de commit (D-40).
       - uses: actions/checkout@v4.2.2
@@ -23,6 +24,7 @@ jobs:
 
   schemas:
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       # Pendência: pinar por SHA de commit (D-40).
       - uses: actions/checkout@v4.2.2

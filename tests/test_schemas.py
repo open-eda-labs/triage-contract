@@ -1,5 +1,6 @@
 """Valida os schemas do contrato e os exemplos em examples/."""
 
+import copy
 import json
 import pathlib
 
@@ -27,6 +28,11 @@ EXPECTED_INVALID = {
         "vulnerability-from-grafana-source": {"pattern"},
         "resolved-without-ends-at": {"required"},
         "unknown-type": {"enum"},
+        "trailing-newline-in-id": {"pattern"},
+        "email-in-event-id": {"pattern"},
+        "colon-in-rule-name": {"pattern"},
+        "dataref-scheme-not-allowed": {"pattern"},
+        "dataref-dot-dot-segment": {"pattern"},
     },
     "recommendation": {
         "extra-field-in-hypothesis": {"additionalProperties"},
@@ -44,8 +50,20 @@ EXPECTED_INVALID = {
         "failed-without-reason": {"required"},
         "multiline-text": {"pattern"},
         "recommended-without-hypotheses": {"minItems"},
+        "trailing-newline-in-cause": {"pattern"},
+        "line-separator-in-text": {"pattern"},
+        "protocol-relative-url-in-text": {"pattern"},
+        "tel-scheme-in-text": {"pattern"},
+        "bare-domain-path-in-cause": {"pattern"},
+        "at-sign-in-query-id": {"pattern"},
+        "dot-dot-in-query-id": {"pattern"},
+        "triage-with-build-failed": {"enum"},
+        "no-change-with-patch-hash": {"not"},
     },
 }
+
+# Quebras de linha que o texto livre não pode conter (safeText).
+LINE_BREAKS = ["\r", "\n", "\u000b", "\u000c", "\u0085", "\u2028", "\u2029"]
 
 
 def load(path):
@@ -141,6 +159,73 @@ def test_invalid_example_fails_for_the_expected_reason(name, path):
     assert errors, "exemplo inválido passou na validação"
     found = {e.validator for err in errors for e in [err, *err.context]}
     assert found & expected, f"esperado {expected}, encontrado {found}"
+
+
+def string_leaves(node, path=()):
+    """Caminhos de todas as strings de um documento JSON."""
+    if isinstance(node, str):
+        yield path
+    elif isinstance(node, dict):
+        for key, value in node.items():
+            yield from string_leaves(value, (*path, key))
+    elif isinstance(node, list):
+        for i, value in enumerate(node):
+            yield from string_leaves(value, (*path, i))
+
+
+def replaced(doc, path, fn):
+    doc = copy.deepcopy(doc)
+    node = doc
+    for key in path[:-1]:
+        node = node[key]
+    node[path[-1]] = fn(node[path[-1]])
+    return doc
+
+
+@pytest.mark.parametrize("name,path", cases("valid"))
+def test_trailing_newline_is_rejected_in_every_string(name, path):
+    """re.search aceita "\\n" antes de `$`; os patterns precisam barrar isso."""
+    doc, check = load(path), validator(name)
+    for leaf in string_leaves(doc):
+        bad = replaced(doc, leaf, lambda s: s + "\n")
+        assert not check.is_valid(bad), f"{'/'.join(map(str, leaf))} aceitou newline final"
+
+
+@pytest.mark.parametrize("char", LINE_BREAKS, ids=[f"U+{ord(c):04X}" for c in LINE_BREAKS])
+def test_safe_text_rejects_line_breaks(char):
+    doc = load(ROOT / "examples" / "recommendation" / "valid" / "triage-hypotheses.json")
+    check = validator("recommendation")
+    for leaf in (("suggested_action", "text"), ("hypotheses", 0, "cause"),
+                 ("hypotheses", 0, "evidence", 0, "value")):
+        bad = replaced(doc, leaf, lambda s: f"antes{char}depois")
+        assert not check.is_valid(bad), leaf
+
+
+@pytest.mark.parametrize("text", [
+    "java.lang.OutOfMemoryError no pod demo-service",
+    "data: 14/11, latência p95 em 2.17.1",
+    "requests/failed acima de 10 por minuto",
+])
+def test_safe_text_keeps_legitimate_causes(text):
+    doc = load(ROOT / "examples" / "recommendation" / "valid" / "triage-hypotheses.json")
+    doc["hypotheses"][0]["cause"] = text
+    assert validator("recommendation").is_valid(doc)
+
+
+def test_every_event_type_closes_data_with_ref():
+    """Todo valor de `type` cai num ramo `then` que fecha `data` com `$ref`."""
+    schema = load(SCHEMAS["alert-event"])
+    for event_type in schema["properties"]["type"]["enum"]:
+        refs = []
+        for branch in schema["allOf"]:
+            cond = branch["if"]["properties"]["type"]
+            matches = cond.get("const") == event_type or event_type in cond.get("enum", [])
+            data = branch["then"].get("properties", {}).get("data", {})
+            if matches and "$ref" in data:
+                refs.append(data["$ref"])
+        assert len(refs) == 1, (event_type, refs)
+        target = schema["$defs"][refs[0].rsplit("/", 1)[-1]]
+        assert target["additionalProperties"] is False
 
 
 @pytest.mark.parametrize("name", SCHEMAS)

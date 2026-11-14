@@ -23,8 +23,15 @@ O N1 (`osv-scanner fix`, estratégia override, sem modelo) aplicou o bump e o bu
 4. Devolva o resultado em `/out`, em um de três casos:
    - **Patch pronto:** só `/out/patch.diff` (diff unificado relativo à raiz do repositório). Não escreva `recommendation.json`; o passo de publicação o escreve com `status: pr_opened`.
    - **Sem mudança:** `/out/recommendation.json` com `status: no_change`, quando o patch não for necessário ou não houver correção segura.
-   - **Falha:** `/out/recommendation.json` com `status: failed` e `failure_reason` (`build_failed`, `tests_failed`, `timeout`).
+   - **Falha:** `/out/recommendation.json` com `status: failed` e `failure_reason` (`build_failed` ou `tests_failed`).
 5. Nos dois últimos casos use `kind: vuln_fix`, `fix.level: N2` e `fix.evidence` com build, testes e re-scan.
+
+## O workflow preenche, não o modelo
+
+- `trace_id`, `event` e `versions`.
+- `fix.to_version`, `fix.patch_sha256` e `fix.pr_number`.
+- `status: pr_opened`, depois de abrir o PR draft.
+- `failure_reason: timeout`, quando o passo estoura o tempo.
 
 ## O que este passo não faz
 
@@ -34,6 +41,6 @@ O N1 (`osv-scanner fix`, estratégia override, sem modelo) aplicou o bump e o bu
 
 ## Regras de texto
 
-Uma linha, sem URL, sem `www.`, sem `[texto](alvo)`, sem `![img](alvo)`, sem `<` ou `>`.
+Uma linha, sem URL, sem `//`, sem `www.`, sem `tel:`, sem domínio com caminho (`exemplo.com/x`), sem `[texto](alvo)`, sem `![img](alvo)`, sem `<` ou `>`.
 
 Exemplos: `examples/recommendation/valid/vuln-fix-*.json`.

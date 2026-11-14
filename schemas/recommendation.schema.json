@@ -25,7 +25,7 @@
       "enum": ["recommended", "pr_opened", "no_change", "failed"]
     },
     "failure_reason": {
-      "description": "Obrigatório quando `status` = `failed`, proibido nos demais.",
+      "description": "Obrigatório quando `status` = `failed`, proibido nos demais. Os valores aceitos dependem de `kind`: triagem não aceita `build_failed` nem `tests_failed`; vuln_fix não aceita `collector_error`.",
       "enum": [
         "collector_error",
         "model_error",
@@ -41,7 +41,7 @@
       "description": "trace-id W3C do `traceparent` do evento (D-12).",
       "type": "string",
       "maxLength": 32,
-      "pattern": "^(?!0{32})[0-9a-f]{32}$"
+      "pattern": "^(?!0{32})[0-9a-f]{32}$(?!\\n)"
     },
     "event": {
       "description": "Referência ao evento de entrada: o par que define duplicata (D-10).",
@@ -52,13 +52,13 @@
         "source": {
           "type": "string",
           "maxLength": 80,
-          "pattern": "^/(grafana|azure-monitor|datadog|osv-scanner|dependabot)/[a-z0-9][a-z0-9.-]{0,62}$"
+          "pattern": "^/(grafana|azure-monitor|datadog|osv-scanner|dependabot)/[a-z0-9][a-z0-9.-]{0,62}$(?!\\n)"
         },
         "id": {
           "type": "string",
           "minLength": 1,
           "maxLength": 256,
-          "pattern": "^(?!.*://)[A-Za-z0-9][A-Za-z0-9._:/@+=-]{0,255}$"
+          "pattern": "^(?!.*://)[A-Za-z0-9][A-Za-z0-9._:/=-]{0,255}$(?!\\n)"
         }
       }
     },
@@ -71,21 +71,21 @@
           "description": "Versão deste contrato que gerou o documento.",
           "type": "string",
           "maxLength": 16,
-          "pattern": "^0\\.1\\.(0|[1-9][0-9]{0,3})$"
+          "pattern": "^0\\.1\\.(0|[1-9][0-9]{0,3})$(?!\\n)"
         },
         "prompt": {
           "description": "Prompt versionado, ex.: triage.v1.",
           "type": "string",
           "minLength": 4,
           "maxLength": 64,
-          "pattern": "^[a-z0-9][a-z0-9-]*\\.v[0-9]{1,4}$"
+          "pattern": "^[a-z0-9][a-z0-9-]*\\.v[0-9]{1,4}$(?!\\n)"
         },
         "model": {
           "description": "Nome lógico do modelo no gateway ou na base_url (D-09), nunca o endpoint.",
           "type": "string",
           "minLength": 1,
           "maxLength": 64,
-          "pattern": "^[a-z0-9][a-z0-9._:-]{0,63}$"
+          "pattern": "^[a-z0-9][a-z0-9._:-]{0,63}$(?!\\n)"
         }
       }
     },
@@ -143,6 +143,16 @@
           "status": {
             "enum": ["recommended", "failed"]
           },
+          "failure_reason": {
+            "enum": [
+              "collector_error",
+              "model_error",
+              "output_invalid",
+              "budget_exceeded",
+              "timeout",
+              "publish_failed"
+            ]
+          },
           "versions": {
             "required": ["prompt", "model"]
           }
@@ -166,6 +176,17 @@
         "properties": {
           "status": {
             "enum": ["pr_opened", "no_change", "failed"]
+          },
+          "failure_reason": {
+            "enum": [
+              "model_error",
+              "output_invalid",
+              "budget_exceeded",
+              "timeout",
+              "build_failed",
+              "tests_failed",
+              "publish_failed"
+            ]
           },
           "hypotheses": {
             "maxItems": 0
@@ -283,6 +304,28 @@
         "required": ["status"],
         "properties": {
           "status": {
+            "const": "no_change"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "fix": {
+            "not": {
+              "anyOf": [
+                {"required": ["patch_sha256"]},
+                {"required": ["pr_number"]}
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["status"],
+        "properties": {
+          "status": {
             "const": "pr_opened"
           }
         }
@@ -323,20 +366,20 @@
   ],
   "$defs": {
     "safeText": {
-      "description": "Texto curto, uma linha, sem URL (qualquer esquema://, www., mailto:, javascript:, data:tipo/), sem markdown de link ou imagem (`](`, `![`) e sem `<` ou `>` (sintaxe de link do Slack e HTML).",
+      "description": "Texto curto, uma linha (sem \\r, \\n, \\u000b, \\u000c, \\u0085, \\u2028, \\u2029), sem `//` (cobre esquema:// e URL relativa a protocolo), sem `www.`, `mailto:`, `tel:`, `javascript:`, `data:tipo/`, sem domínio seguido de caminho (`.tld/`), sem markdown de link ou imagem (`](`, `![`) e sem `<` ou `>` (sintaxe de link do Slack e HTML). Domínio nu sem caminho (`exemplo.com`) não é barrado: o publicador publica texto puro, sem mrkdwn e sem unfurl.",
       "type": "string",
       "minLength": 1,
       "maxLength": 280,
-      "pattern": "^(?![\\s\\S]*([A-Za-z][A-Za-z0-9+.-]*://|[Ww][Ww][Ww]\\.|\\]\\(|!\\[|[<>]|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Jj][Aa][Vv][Aa][Ss][Cc][Rr][Ii][Pp][Tt]:|[Dd][Aa][Tt][Aa]:[A-Za-z]+/))[^\\r\\n]+$"
+      "pattern": "^(?![\\s\\S]*(//|[Ww][Ww][Ww]\\.|\\.[A-Za-z]{2,}/|\\]\\(|!\\[|[<>]|[Mm][Aa][Ii][Ll][Tt][Oo]:|[Tt][Ee][Ll]:|[Jj][Aa][Vv][Aa][Ss][Cc][Rr][Ii][Pp][Tt]:|[Dd][Aa][Tt][Aa]:[A-Za-z]+/))[^\\r\\n\\u000b\\u000c\\u0085\\u2028\\u2029]+$(?!\\n)"
     },
     "identifier": {
       "type": "string",
       "minLength": 1,
       "maxLength": 128,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@+=-]*$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:=-]*$(?!\\n)"
     },
     "evidenceRef": {
-      "description": "Evidência como referência estruturada: qual coletor, qual consulta fixa e o valor resumido. O workflow monta o link a partir de `collector` + `query_id`.",
+      "description": "Evidência: `collector` e `query_id` são a referência estruturada à consulta fixa; `value` é um resumo curto em texto, sujeito ao detector de D-43 antes de publicar. O workflow monta o link a partir de `collector` + `query_id`.",
       "type": "object",
       "additionalProperties": false,
       "required": ["collector", "query_id", "value"],
@@ -345,10 +388,14 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 63,
-          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$(?!\\n)"
         },
         "query_id": {
-          "$ref": "#/$defs/identifier"
+          "description": "Id da consulta fixa; o workflow confere contra o registro de consultas antes de publicar.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^(?!.*\\.\\.)[A-Za-z0-9][A-Za-z0-9._:=-]*$(?!\\n)"
         },
         "value": {
           "$ref": "#/$defs/safeText",
@@ -388,13 +435,13 @@
         "advisory_id": {
           "type": "string",
           "maxLength": 32,
-          "pattern": "^(CVE-[0-9]{4}-[0-9]{4,7}|GHSA(-[23456789cfghjmpqrvwx]{4}){3})$"
+          "pattern": "^(CVE-[0-9]{4}-[0-9]{4,7}|GHSA(-[23456789cfghjmpqrvwx]{4}){3})$(?!\\n)"
         },
         "package": {
           "type": "string",
           "minLength": 3,
           "maxLength": 200,
-          "pattern": "^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$"
+          "pattern": "^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$(?!\\n)"
         },
         "from_version": {
           "$ref": "#/$defs/version"
@@ -409,7 +456,7 @@
         "patch_sha256": {
           "type": "string",
           "maxLength": 64,
-          "pattern": "^[0-9a-f]{64}$"
+          "pattern": "^[0-9a-f]{64}$(?!\\n)"
         },
         "pr_number": {
           "type": "integer",
@@ -437,7 +484,7 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$"
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$(?!\\n)"
     }
   }
 }
