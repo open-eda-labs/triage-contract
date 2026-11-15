@@ -1,0 +1,236 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://open-eda-labs.github.io/triage-contract/schemas/alert-event.yaml
+title: AlertEvent
+description: 'Evento de entrada do laboratório open-eda-labs (D-10): envelope CloudEvents 1.0 em modo estruturado JSON com `data` próprio e pequeno. Duplicata é definida pelo par `source` + `id`: dois eventos com o mesmo par são o mesmo evento e o segundo é descartado pela dedup. O payload bruto do emissor nunca entra aqui; ele fica no armazenamento apontado por `dataref` (D-22). `data` só aceita os campos listados, pensados para classe D0 ou D1 (D-42); o schema limita forma e tamanho, e a classificação do valor é do intake (D-43).'
+type: object
+additionalProperties: false
+required:
+  - specversion
+  - id
+  - source
+  - type
+  - time
+  - datacontenttype
+  - traceparent
+  - dataref
+  - data
+properties:
+  specversion:
+    description: Versão do CloudEvents.
+    const: '1.0'
+  id:
+    $ref: '#/$defs/eventId'
+  source:
+    $ref: '#/$defs/eventSource'
+  type:
+    description: Tipo do evento, em namespace reverso neutro.
+    enum:
+      - io.github.open-eda-labs.alert.firing
+      - io.github.open-eda-labs.alert.resolved
+      - io.github.open-eda-labs.vulnerability.detected
+  time:
+    $ref: '#/$defs/timestamp'
+  datacontenttype:
+    const: application/json
+  subject:
+    description: Serviço afetado, opcional (mesmo valor de `data.service` ou nome do repositório sem a organização).
+    type: string
+    minLength: 1
+    maxLength: 63
+    pattern: ^[a-z0-9][a-z0-9-]{0,62}$(?!\n)
+  traceparent:
+    description: Extensão W3C Trace Context (versão 00). O trace-id é o `trace_id` propagado até a saída e a auditoria (D-12).
+    type: string
+    maxLength: 55
+    pattern: ^00-(?!0{32})[0-9a-f]{32}-(?!0{16})[0-9a-f]{16}-[0-9a-f]{2}$(?!\n)
+  dataref:
+    description: 'Extensão CloudEvents `dataref`: referência ao payload completo guardado pelo intake. Esquemas aceitos: `s3` e `https`. Sem credencial, userinfo, porta, query, fragmento nem segmentos `.` ou `..` (nenhum segredo em URL). O consumidor só resolve hosts da sua allowlist.'
+    type: string
+    maxLength: 512
+    pattern: ^(s3|https)://[a-z0-9][a-z0-9.-]*(/(?!\.\.?(/|$))[A-Za-z0-9._~-]+)+$(?!\n)
+  data:
+    description: Conteúdo próprio do evento; a forma depende de `type`.
+    type: object
+allOf:
+  - if:
+      required:
+        - type
+      properties:
+        type:
+          enum:
+            - io.github.open-eda-labs.alert.firing
+            - io.github.open-eda-labs.alert.resolved
+    then:
+      properties:
+        source:
+          pattern: ^/(grafana|azure-monitor|datadog)/
+        data:
+          $ref: '#/$defs/alertData'
+  - if:
+      required:
+        - type
+      properties:
+        type:
+          const: io.github.open-eda-labs.alert.resolved
+    then:
+      properties:
+        data:
+          required:
+            - ends_at
+  - if:
+      required:
+        - type
+      properties:
+        type:
+          const: io.github.open-eda-labs.vulnerability.detected
+    then:
+      properties:
+        source:
+          pattern: ^/(osv-scanner|dependabot)/
+        data:
+          $ref: '#/$defs/vulnerabilityData'
+$defs:
+  eventId:
+    description: 'Identificador do evento, único por `source`. Alerta: montado pelo adapter a partir do fingerprint, do início e do estado (firing e resolved da mesma ocorrência têm ids diferentes). Vulnerabilidade: `<advisory>:<owner/repo>:<groupId:artifactId>` (D-30).'
+    type: string
+    minLength: 1
+    maxLength: 256
+    pattern: ^(?!.*://)[A-Za-z0-9][A-Za-z0-9._:/=-]{0,255}$(?!\n)
+  eventSource:
+    description: 'Origem do evento: `/<emissor>/<instância>`. O emissor é a fonte normalizada pelo adapter (D-36) ou o scanner (D-30).'
+    type: string
+    maxLength: 80
+    pattern: ^/(grafana|azure-monitor|datadog|osv-scanner|dependabot)/[a-z0-9][a-z0-9.-]{0,62}$(?!\n)
+  timestamp:
+    description: Instante RFC 3339 com fuso.
+    type: string
+    format: date-time
+    maxLength: 35
+    pattern: ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})$(?!\n)
+  identifier:
+    type: string
+    minLength: 1
+    maxLength: 128
+    pattern: ^[A-Za-z0-9][A-Za-z0-9._:=-]*$(?!\n)
+  slug:
+    type: string
+    minLength: 1
+    maxLength: 63
+    pattern: ^[a-z0-9][a-z0-9-]{0,62}$(?!\n)
+  severity:
+    description: 'Severidade normalizada pelo adapter (Grafana: label; Azure Monitor: Sev0 a Sev4; OSV: CVSS ou rótulo do advisory).'
+    enum:
+      - critical
+      - high
+      - medium
+      - low
+      - info
+      - unknown
+  alertData:
+    description: 'Alerta de Grafana, Azure Monitor ou Datadog, já normalizado. Sem título, descrição, anotações nem labels livres: o texto do emissor fica atrás de `dataref`. O único texto do emissor aqui é `rule_name`, limitado a rótulo curto.'
+    type: object
+    additionalProperties: false
+    required:
+      - fingerprint
+      - service
+      - rule_id
+      - rule_name
+      - severity
+      - starts_at
+    properties:
+      fingerprint:
+        description: Chave estável da regra mais série; base do nome determinístico do Workflow.
+        $ref: '#/$defs/identifier'
+        maxLength: 64
+      service:
+        $ref: '#/$defs/slug'
+      environment:
+        $ref: '#/$defs/slug'
+        maxLength: 32
+      rule_id:
+        description: Id curto da regra de alerta; escolhe as consultas fixas de evidência (D-06).
+        $ref: '#/$defs/identifier'
+      rule_name:
+        description: 'Rótulo curto da regra (até 64 caracteres: letras, dígitos, espaço, ponto, hífen, sublinhado e parênteses; sem `:` nem `/`). É texto do emissor: dado não confiável, não instrução.'
+        type: string
+        minLength: 1
+        maxLength: 64
+        pattern: ^[A-Za-z0-9À-ÖØ-öø-ÿ][A-Za-z0-9À-ÖØ-öø-ÿ ._()-]{0,63}$(?!\n)
+      severity:
+        $ref: '#/$defs/severity'
+      starts_at:
+        $ref: '#/$defs/timestamp'
+      ends_at:
+        $ref: '#/$defs/timestamp'
+      metric:
+        type: string
+        minLength: 1
+        maxLength: 128
+        pattern: ^(?!.*//)[A-Za-z_][A-Za-z0-9_.:/]*$(?!\n)
+      observed_value:
+        type: number
+      threshold:
+        type: number
+      unit:
+        type: string
+        minLength: 1
+        maxLength: 16
+        pattern: ^[A-Za-z0-9%/._-]+$(?!\n)
+  vulnerabilityData:
+    description: Achado de vulnerabilidade em dependência (OSV-Scanner, D-30; ecossistema Maven, D-29). Só dados públicos.
+    type: object
+    additionalProperties: false
+    required:
+      - advisory_id
+      - repository
+      - ecosystem
+      - package
+      - installed_version
+      - severity
+      - manifest_path
+    properties:
+      advisory_id:
+        $ref: '#/$defs/advisoryId'
+      aliases:
+        type: array
+        maxItems: 8
+        uniqueItems: true
+        items:
+          $ref: '#/$defs/advisoryId'
+      repository:
+        description: Repositório no formato owner/nome.
+        type: string
+        minLength: 3
+        maxLength: 140
+        pattern: ^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9._-]{1,100}$(?!\n)
+      ecosystem:
+        enum:
+          - Maven
+      package:
+        description: groupId:artifactId.
+        type: string
+        minLength: 3
+        maxLength: 200
+        pattern: ^[A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+$(?!\n)
+      installed_version:
+        $ref: '#/$defs/version'
+      fixed_version:
+        description: Menor versão corrigida na mesma linha, se existir. Ausente indica nível N3.
+        $ref: '#/$defs/version'
+      severity:
+        $ref: '#/$defs/severity'
+      manifest_path:
+        description: Caminho relativo do pom.xml no repositório.
+        type: string
+        minLength: 1
+        maxLength: 256
+        pattern: ^(?!.*\.\.)[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$(?!\n)
+  advisoryId:
+    type: string
+    maxLength: 32
+    pattern: ^(CVE-[0-9]{4}-[0-9]{4,7}|GHSA(-[23456789cfghjmpqrvwx]{4}){3})$(?!\n)
+  version:
+    type: string
+    minLength: 1
+    maxLength: 64
+    pattern: ^[A-Za-z0-9][A-Za-z0-9._+-]*$(?!\n)
