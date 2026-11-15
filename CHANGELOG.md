@@ -6,11 +6,12 @@ Formato baseado em Keep a Changelog; versões seguem semver.
 
 ### Adicionado
 
-- `schemas/alert-event.json`: envelope CloudEvents 1.0 com `traceparent` e `dataref`; tipos `alert.firing`, `alert.resolved` e `vulnerability.detected`.
-- `schemas/recommendation.schema.json`: até 3 hipóteses com evidência estruturada, `not_enough_evidence`, ação sugerida, status (`recommended`, `pr_opened`, `no_change`, `failed`) e bloco `fix` do vuln fixer.
+- `schemas/alert-event.yaml`: envelope CloudEvents 1.0 com `traceparent` e `dataref`; tipos `alert.firing`, `alert.resolved` e `vulnerability.detected`.
+- `schemas/recommendation.yaml`: até 3 hipóteses com evidência estruturada, `not_enough_evidence`, ação sugerida, status (`recommended`, `pr_opened`, `no_change`, `failed`) e bloco `fix` do vuln fixer.
 - Exemplos válidos e inválidos para os dois schemas e `tests/test_schemas.py`.
 - `AGENTS.md` e skills `triage-recommendation` e `vuln-fix-maven`.
-- CI com yamllint, markdownlint e pytest, com `timeout-minutes: 5` por job.
+- CI com lint (workflow reutilizável da org) e pytest, com `timeout-minutes: 5` por job.
+- Schemas e exemplos passam a ser YAML.
 - README: seções "O que o schema não garante" e "Escolhas [P] a confirmar".
 
 ### Endurecido após revisão independente

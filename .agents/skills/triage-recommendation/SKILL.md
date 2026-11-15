@@ -7,7 +7,7 @@ description: Produz um recommendation.json válido (kind triage) a partir de um 
 
 ## Entrada
 
-- O evento (`schemas/alert-event.json`): use só `data` e `source` + `id`. Não busque o payload de `dataref`.
+- O evento (`schemas/alert-event.yaml`): use só `data` e `source` + `id`. Não busque o payload de `dataref`.
 - A evidência coletada no passo 2: uma lista de resultados, cada um com `collector`, `query_id` e valor.
 
 ## Passos
@@ -29,6 +29,6 @@ Uma linha, sem URL, sem `//`, sem `www.`, sem `tel:`, sem domínio com caminho (
 
 ## Verificação
 
-Valide contra `schemas/recommendation.schema.json`. Se não passar, o passo 4 registra `status: failed` com `failure_reason: output_invalid`; não tente "consertar" o texto removendo só o trecho rejeitado.
+Valide contra `schemas/recommendation.yaml`. Se não passar, o passo 4 registra `status: failed` com `failure_reason: output_invalid`; não tente "consertar" o texto removendo só o trecho rejeitado.
 
-Exemplos: `examples/recommendation/valid/triage-*.json`.
+Exemplos: os casos `triage-*` de `examples/recommendation.yaml`.

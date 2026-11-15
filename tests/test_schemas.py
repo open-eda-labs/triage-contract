@@ -1,66 +1,15 @@
 """Valida os schemas do contrato e os exemplos em examples/."""
 
 import copy
-import json
 import pathlib
 
 import pytest
+import yaml
 from jsonschema import Draft202012Validator
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SCHEMAS = {
-    "alert-event": ROOT / "schemas" / "alert-event.json",
-    "recommendation": ROOT / "schemas" / "recommendation.schema.json",
-}
+SCHEMAS = {n: ROOT / "schemas" / f"{n}.yaml" for n in ("alert-event", "recommendation")}
 FORMAT_CHECKER = Draft202012Validator.FORMAT_CHECKER
-
-# Cada exemplo inválido precisa falhar pelo motivo certo: ao menos um erro
-# com uma destas palavras-chave do JSON Schema.
-EXPECTED_INVALID = {
-    "alert-event": {
-        "extra-field-in-data": {"additionalProperties"},
-        "raw-payload-in-envelope": {"additionalProperties"},
-        "wrong-specversion": {"const"},
-        "rule-name-too-long": {"maxLength"},
-        "url-in-rule-name": {"pattern"},
-        "traceparent-all-zero": {"pattern"},
-        "missing-dataref": {"required"},
-        "vulnerability-from-grafana-source": {"pattern"},
-        "resolved-without-ends-at": {"required"},
-        "unknown-type": {"enum"},
-        "trailing-newline-in-id": {"pattern"},
-        "email-in-event-id": {"pattern"},
-        "colon-in-rule-name": {"pattern"},
-        "dataref-scheme-not-allowed": {"pattern"},
-        "dataref-dot-dot-segment": {"pattern"},
-    },
-    "recommendation": {
-        "extra-field-in-hypothesis": {"additionalProperties"},
-        "url-in-cause": {"pattern"},
-        "markdown-link-in-action": {"pattern"},
-        "markdown-image-in-evidence": {"pattern"},
-        "slack-link-syntax-in-action": {"pattern"},
-        "cause-too-long": {"maxLength"},
-        "status-out-of-enum": {"enum"},
-        "not-enough-evidence-with-hypotheses": {"maxItems"},
-        "four-hypotheses": {"maxItems"},
-        "numeric-confidence": {"enum"},
-        "pr-opened-without-pr-number": {"required"},
-        "triage-with-pr-opened": {"enum"},
-        "failed-without-reason": {"required"},
-        "multiline-text": {"pattern"},
-        "recommended-without-hypotheses": {"minItems"},
-        "trailing-newline-in-cause": {"pattern"},
-        "line-separator-in-text": {"pattern"},
-        "protocol-relative-url-in-text": {"pattern"},
-        "tel-scheme-in-text": {"pattern"},
-        "bare-domain-path-in-cause": {"pattern"},
-        "at-sign-in-query-id": {"pattern"},
-        "dot-dot-in-query-id": {"pattern"},
-        "triage-with-build-failed": {"enum"},
-        "no-change-with-patch-hash": {"not"},
-    },
-}
 
 # Quebras de linha que o texto livre não pode conter (safeText).
 LINE_BREAKS = ["\r", "\n", "\u000b", "\u000c", "\u0085", "\u2028", "\u2029"]
@@ -68,22 +17,23 @@ LINE_BREAKS = ["\r", "\n", "\u000b", "\u000c", "\u0085", "\u2028", "\u2029"]
 
 def load(path):
     with path.open(encoding="utf-8") as fh:
-        return json.load(fh)
+        return yaml.safe_load(fh)
+
+
+EXAMPLES = {n: load(ROOT / "examples" / f"{n}.yaml") for n in SCHEMAS}
+TRIAGE_HYPOTHESES = next(c["doc"] for c in EXAMPLES["recommendation"] if c["name"] == "triage-hypotheses")
 
 
 def validator(name):
     return Draft202012Validator(load(SCHEMAS[name]), format_checker=FORMAT_CHECKER)
 
 
-def examples(name, kind):
-    return sorted((ROOT / "examples" / name / kind).glob("*.json"))
-
-
-def cases(kind):
+def cases(valid):
     return [
-        pytest.param(name, path, id=f"{name}/{kind}/{path.stem}")
+        pytest.param(name, case, id=f"{name}/{'valid' if valid else 'invalid'}/{case['name']}")
         for name in SCHEMAS
-        for path in examples(name, kind)
+        for case in EXAMPLES[name]
+        if case["valid"] is valid
     ]
 
 
@@ -135,27 +85,28 @@ def test_event_reference_matches_alert_event():
         assert ref[field]["maxLength"] == event[definition]["maxLength"]
 
 
-@pytest.mark.parametrize("name,kind,minimum", [
-    ("alert-event", "valid", 3),
-    ("alert-event", "invalid", 5),
-    ("recommendation", "valid", 3),
-    ("recommendation", "invalid", 5),
+@pytest.mark.parametrize("name,valid,minimum", [
+    ("alert-event", True, 3),
+    ("alert-event", False, 5),
+    ("recommendation", True, 3),
+    ("recommendation", False, 5),
 ])
-def test_minimum_number_of_examples(name, kind, minimum):
-    assert len(examples(name, kind)) >= minimum
+def test_minimum_number_of_examples(name, valid, minimum):
+    assert sum(c["valid"] is valid for c in EXAMPLES[name]) >= minimum
 
 
-@pytest.mark.parametrize("name,path", cases("valid"))
-def test_valid_example_passes(name, path):
-    errors = [e.message for e in validator(name).iter_errors(load(path))]
+@pytest.mark.parametrize("name,case", cases(True))
+def test_valid_example_passes(name, case):
+    errors = [e.message for e in validator(name).iter_errors(case["doc"])]
     assert errors == []
 
 
-@pytest.mark.parametrize("name,path", cases("invalid"))
-def test_invalid_example_fails_for_the_expected_reason(name, path):
-    expected = EXPECTED_INVALID[name].get(path.stem)
-    assert expected, f"adicione {path.stem} em EXPECTED_INVALID"
-    errors = list(validator(name).iter_errors(load(path)))
+@pytest.mark.parametrize("name,case", cases(False))
+def test_invalid_example_fails_for_the_expected_reason(name, case):
+    # Cada exemplo inválido precisa falhar pelo motivo certo: ao menos um erro
+    # com uma das palavras-chave do JSON Schema em `rule`.
+    expected = set(case["rule"])
+    errors = list(validator(name).iter_errors(case["doc"]))
     assert errors, "exemplo inválido passou na validação"
     found = {e.validator for err in errors for e in [err, *err.context]}
     assert found & expected, f"esperado {expected}, encontrado {found}"
@@ -182,10 +133,10 @@ def replaced(doc, path, fn):
     return doc
 
 
-@pytest.mark.parametrize("name,path", cases("valid"))
-def test_trailing_newline_is_rejected_in_every_string(name, path):
+@pytest.mark.parametrize("name,case", cases(True))
+def test_trailing_newline_is_rejected_in_every_string(name, case):
     """re.search aceita "\\n" antes de `$`; os patterns precisam barrar isso."""
-    doc, check = load(path), validator(name)
+    doc, check = case["doc"], validator(name)
     for leaf in string_leaves(doc):
         bad = replaced(doc, leaf, lambda s: s + "\n")
         assert not check.is_valid(bad), f"{'/'.join(map(str, leaf))} aceitou newline final"
@@ -193,7 +144,7 @@ def test_trailing_newline_is_rejected_in_every_string(name, path):
 
 @pytest.mark.parametrize("char", LINE_BREAKS, ids=[f"U+{ord(c):04X}" for c in LINE_BREAKS])
 def test_safe_text_rejects_line_breaks(char):
-    doc = load(ROOT / "examples" / "recommendation" / "valid" / "triage-hypotheses.json")
+    doc = TRIAGE_HYPOTHESES
     check = validator("recommendation")
     for leaf in (("suggested_action", "text"), ("hypotheses", 0, "cause"),
                  ("hypotheses", 0, "evidence", 0, "value")):
@@ -207,7 +158,7 @@ def test_safe_text_rejects_line_breaks(char):
     "requests/failed acima de 10 por minuto",
 ])
 def test_safe_text_keeps_legitimate_causes(text):
-    doc = load(ROOT / "examples" / "recommendation" / "valid" / "triage-hypotheses.json")
+    doc = copy.deepcopy(TRIAGE_HYPOTHESES)
     doc["hypotheses"][0]["cause"] = text
     assert validator("recommendation").is_valid(doc)
 
@@ -228,7 +179,8 @@ def test_every_event_type_closes_data_with_ref():
         assert target["additionalProperties"] is False
 
 
+
 @pytest.mark.parametrize("name", SCHEMAS)
-def test_every_expected_invalid_has_a_file(name):
-    stems = {p.stem for p in examples(name, "invalid")}
-    assert set(EXPECTED_INVALID[name]) == stems
+def test_every_invalid_example_has_a_rule(name):
+    for case in EXAMPLES[name]:
+        assert bool(case.get("rule")) is not case["valid"], case["name"]

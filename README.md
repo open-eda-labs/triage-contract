@@ -8,9 +8,9 @@ Plano de origem: [Plano Mestre](https://github.com/open-eda-labs/open-eda-labs.g
 
 | Caminho | Conteúdo |
 | --- | --- |
-| `schemas/alert-event.json` | Evento de entrada: envelope CloudEvents 1.0 com `data` próprio (alerta ou vulnerabilidade) |
-| `schemas/recommendation.schema.json` | Saída da triagem read-only e do vuln fixer |
-| `examples/<schema>/valid/`, `examples/<schema>/invalid/` | Exemplos sintéticos; os inválidos documentam o que o schema barra |
+| `schemas/alert-event.yaml` | Evento de entrada: envelope CloudEvents 1.0 com `data` próprio (alerta ou vulnerabilidade) |
+| `schemas/recommendation.yaml` | Saída da triagem read-only e do vuln fixer |
+| `examples/alert-event.yaml`, `examples/recommendation.yaml` | Casos sintéticos (`name`, `valid`, `rule`, `doc`); os inválidos documentam o que o schema barra |
 | `tests/test_schemas.py` | Valida schemas contra o metaschema e todos os exemplos |
 | `requirements-dev.txt` | Dependências pinadas dos testes |
 | `AGENTS.md` | Regras para qualquer harness de agente (D-15) |
@@ -25,9 +25,9 @@ Requer Python 3.12. Crie o venv fora do repositório:
 python3 -m venv ~/.venvs/triage-contract
 ~/.venvs/triage-contract/bin/pip install -r requirements-dev.txt
 ~/.venvs/triage-contract/bin/pytest -q
-pipx run yamllint==1.35.1 --strict .
-npx --yes markdownlint-cli2@0.14.0 "**/*.md"
 ```
+
+O lint é o workflow reutilizável da org (repositório `.github`), chamado pelo CI.
 
 `rfc3339-validator` é necessário: sem ele o `format: date-time` é ignorado em silêncio, e há teste que falha nesse caso.
 

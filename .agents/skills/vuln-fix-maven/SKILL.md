@@ -12,7 +12,7 @@ O N1 (`osv-scanner fix`, estratégia override, sem modelo) aplicou o bump e o bu
 ## Entrada (`/in`)
 
 - Cópia de trabalho do repositório com o bump do N1 aplicado.
-- O evento `io.github.open-eda-labs.vulnerability.detected` (`schemas/alert-event.json`).
+- O evento `io.github.open-eda-labs.vulnerability.detected` (`schemas/alert-event.yaml`).
 - A saída do build ou teste que falhou.
 
 ## Passos
@@ -43,4 +43,4 @@ O N1 (`osv-scanner fix`, estratégia override, sem modelo) aplicou o bump e o bu
 
 Uma linha, sem URL, sem `//`, sem `www.`, sem `tel:`, sem domínio com caminho (`exemplo.com/x`), sem `[texto](alvo)`, sem `![img](alvo)`, sem `<` ou `>`.
 
-Exemplos: `examples/recommendation/valid/vuln-fix-*.json`.
+Exemplos: os casos `vuln-fix-*` de `examples/recommendation.yaml`.
