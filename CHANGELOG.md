@@ -25,3 +25,4 @@ Formato baseado em Keep a Changelog; versões seguem semver.
 - `failure_reason` restrito por `kind`; `no_change` proíbe `patch_sha256` e `pr_number`.
 - Teste garante que cada valor de `type` fecha `data` com `$ref` para um objeto fechado.
 - Skill `vuln-fix-maven` lista o que o workflow preenche.
+- Skills reescritas em inglês e enxugadas (menos de 500 tokens cada).
